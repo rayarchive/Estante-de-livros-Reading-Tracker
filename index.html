@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>Estante Widget - Página B (Responsiva)</title>
+    <style>
+        /* --- VARIÁVEIS DE COR --- */
+        :root {
+            --shelf-bg: #0d0d0d;
+            --shelf-border: #1a1a1a;
+            --shelf-divider: #252525;
+            --shelf-gradient-start: #050505;
+            --shelf-gradient-end: #161616;
+            --shelf-shadow-top: rgba(0,0,0,0.2);
+            --text-color: white;
+            --tooltip-bg: #000;
+            --tooltip-border: #444;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --text-color: #1a1a1a;
+                --tooltip-bg: #333;
+                --tooltip-border: #999;
+            }
+        }
+
+        /* --- ESTILO GERAL --- */
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+
+        /* O MÓVEL */
+        .furniture-wrapper {
+            width: 95%;
+            max-width: 420px;
+            margin: 10px auto 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* A PARTE DE CIMA (ESTANTE) */
+        .bookshelf-container {
+            width: 100%;
+            background-color: var(--shelf-bg);
+            border: 12px solid var(--shelf-border);
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            box-shadow: 10px 10px 30px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .bookshelf-container::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -12px;
+            right: -12px;
+            height: 20px;
+            background: var(--shelf-border);
+            border-radius: 4px 4px 0 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        /* AS PRATELEIRAS */
+        .shelf-row {
+            height: 150px;
+            border-bottom: 8px solid var(--shelf-divider);
+            display: flex;
+            align-items: flex-end;
+            padding: 0 2px 0 0;
+            background: linear-gradient(to bottom, var(--shelf-gradient-start), var(--shelf-gradient-end));
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .shelf-row:last-of-type {
+            border-bottom: none !important;
+        }
+
+        .shelf-row::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 10px;
+            background: var(--shelf-shadow-top);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .shelf-footer {
+            width: calc(100% + 2px);
+            height: 40px;
+            background: var(--shelf-border);
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.6);
+            position: relative;
+            margin-top: -1px;
+            z-index: 5;
+        }
+
+        /* O LIVRO */
+        .book, a.book-link {
+            margin-right: 1px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 1px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.9);
+            transition: transform 0.2s;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            display: block;
+            text-decoration: none;
+        }
+
+        .book:hover, a.book-link:hover {
+            transform: translateY(-6px);
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(255,255,255,0.15);
+        }
+
+        /* PREVIEW AMPLIADO (aparece ao passar o mouse) */
+        #zoom-preview {
+            position: fixed;
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.92);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            background: transparent;
+        }
+
+        #zoom-preview.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #zoom-img {
+            display: block;
+            max-height: 65vh;
+            max-width: 90vw;
+            filter: drop-shadow(0 10px 25px rgba(0,0,0,0.6));
+        }
+    </style>
+</head>
+<body>
+
+    <div class="furniture-wrapper">
+        <div class="bookshelf-container" id="bookshelf">
+            <div class="shelf-row"></div>
+            <div class="shelf-row"></div>
+            <div class="shelf-row"></div>
+            <div class="shelf-row"></div>
+            <div class="shelf-row"></div>
+            <div class="shelf-row"></div>
+        </div>
+
+        <div class="shelf-footer"></div>
+    </div>
+
+    <div id="zoom-preview">
+        <img id="zoom-img" src="" alt="">
+    </div>
+
+    <script>
+        /* =======================================================
+           >>> AQUI É ONDE VOCÊ CADASTRA OS LIVROS <<<
+
+           Copie e cole um bloco { ... }, para cada volume.
+           Campos:
+             series -> Nome da obra           (obrigatório)
+             vol    -> Número do volume       (use 0 ou apague a linha se for volume único)
+             url    -> URL pública da imagem da lombada (obrigatório)
+             link   -> URL da página do Notion (apague a linha se não tiver)
+             h_cm   -> Altura em centímetros  (padrão 19)
+             w_cm   -> Espessura em centímetros (padrão 1.5)
+
+           Não esqueça da vírgula entre um bloco e o outro.
+        ======================================================= */
+
+        const MEUS_LIVROS = [
+            {
+                series: "A Caixa Vermelha",
+                vol: 1,
+                url: "https://st3.depositphotos.com/12318692/15342/i/450/depositphotos_153429812-stock-photo-no-signal-tv-seamless-texture.jpg",
+                link: "https://app.notion.com/p/A-Caixa-Vermelha-Vol-1-33ed0c17411c80e99cf9e8c659cdcfba",
+                h_cm: 19,
+                w_cm: 1.5
+            },
+            {
+                series: "A Família Addams: Álbum de Família",
+                vol: 1,
+                url: "https://raw.githubusercontent.com/rayarchive/Lombadas/refs/heads/main/Charles%20Addams.png",
+                link: "https://app.notion.com/p/A-Fam-lia-Addams-lbum-de-Fam-lia-2d8d0c17411c808ba9f9c9b96afa8a35",
+                h_cm: 23,
+                w_cm: 2
+            },
+            {
+                series: "O Único Destino dos Vilões é a Morte",
+                vol: 1,
+                url: "https://raw.githubusercontent.com/rayarchive/Lombadas/refs/heads/main/O%20%C3%BAnico%20Destino%20dos%20Vil%C3%B5es%20%C3%A9%20a%20Morte%20(manhwa)/1.png",
+                link: "https://app.notion.com/p/O-nico-Destino-dos-Vil-es-a-Morte-Volume-1-2dad0c17411c80c891a3efbf6dc5c1db",
+                h_cm: 21,
+                w_cm: 2  
+            }
+        ];
+
+        /* ======= FIM DA ÁREA DE CADASTRO ======= */
+
+        // Escala: quantos pixels equivale 1 cm. Aumente para livros maiores.
+        const PIXELS_PER_CM = 5;
+
+        // Mantém a ordem em que os livros foram cadastrados no código acima,
+        // apenas removendo entradas incompletas (sem nome ou sem imagem).
+        const livros = MEUS_LIVROS.filter(b => b && b.series && b.url);
+
+        function renderShelf() {
+            const rows = document.querySelectorAll('.shelf-row');
+            rows.forEach(r => r.innerHTML = '');
+
+            // Largura real da prateleira (mantém a responsividade no Notion)
+            const rowWidth = rows[0].offsetWidth - 2;
+
+            let currentRow = 0;
+            let currentWidthUsed = 0;
+
+            livros.forEach(book => {
+                const heightPx = (book.h_cm || 19) * PIXELS_PER_CM;
+                const widthPx = (book.w_cm || 1.5) * PIXELS_PER_CM;
+
+                // Se não couber na prateleira atual, pula para a próxima
+                if (currentWidthUsed + widthPx > rowWidth) {
+                    currentRow++;
+                    currentWidthUsed = 0;
+                }
+
+                if (!rows[currentRow]) return;
+
+                let bookEl;
+                if (book.link) {
+                    bookEl = document.createElement('a');
+                    bookEl.className = 'book-link';
+                    bookEl.href = book.link.startsWith('http') ? book.link : 'https://' + book.link;
+                    bookEl.target = '_blank';
+                    bookEl.rel = 'noopener';
+                } else {
+                    bookEl = document.createElement('div');
+                    bookEl.className = 'book';
+                }
+
+                bookEl.style.backgroundImage = `url('${book.url.replace(/\s/g, '%20')}')`;
+                bookEl.style.height = `${heightPx}px`;
+                bookEl.style.width = `${widthPx}px`;
+
+                const displayVol = book.vol > 0 ? ` #${book.vol}` : '';
+                const title = `${book.series}${displayVol}`;
+                bookEl.setAttribute('data-title', title);
+
+                attachZoom(bookEl, book, title, widthPx, heightPx);
+
+                rows[currentRow].appendChild(bookEl);
+                currentWidthUsed += widthPx + 1; // +1 da margem
+            });
+        }
+
+        // --- ZOOM AO PASSAR O MOUSE ---
+        const preview = document.getElementById('zoom-preview');
+        const previewImg = document.getElementById('zoom-img');
+
+        // Escala: quantas vezes maior que a lombada real o preview fica.
+        const PREVIEW_SCALE = 8;
+
+        function movePreview(e) {
+            const box = preview.getBoundingClientRect();
+            let x = e.clientX + 20;
+            let y = e.clientY - box.height / 2;
+
+            // Não deixa o preview sair da tela
+            if (x + box.width > window.innerWidth - 8) x = e.clientX - box.width - 20;
+            if (x < 8) x = 8;
+            if (y < 8) y = 8;
+            if (y + box.height > window.innerHeight - 8) y = window.innerHeight - box.height - 8;
+
+            preview.style.left = `${x}px`;
+            preview.style.top = `${y}px`;
+        }
+
+        function attachZoom(el, book, title, widthPx, heightPx) {
+            el.addEventListener('mouseenter', (e) => {
+                previewImg.src = book.url.replace(/\s/g, '%20');
+                previewImg.alt = '';
+
+                previewImg.style.height = `${heightPx * PREVIEW_SCALE}px`;
+                previewImg.style.width = 'auto';
+
+                preview.classList.add('visible');
+                movePreview(e);
+            });
+
+            el.addEventListener('mousemove', movePreview);
+
+            el.addEventListener('mouseleave', () => {
+                preview.classList.remove('visible');
+            });
+        }
+
+        window.addEventListener('resize', renderShelf);
+        window.addEventListener('load', renderShelf);
+        renderShelf();
+    </script>
+</body>
+</html>
